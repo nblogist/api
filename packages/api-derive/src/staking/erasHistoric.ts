@@ -11,19 +11,24 @@ import { map } from 'rxjs';
 
 import { BN_ONE, BN_ZERO } from '@polkadot/util';
 
+import { isActiveOpt } from '../session/util';
 import { memo } from '../util';
 
 export function erasHistoric (instanceId: string, api: ApiInterfaceRx): (withActive: boolean) => Observable<EraIndex[]> {
   return memo(instanceId, (withActive: boolean): Observable<EraIndex[]> =>
-    api.queryMulti<[Option<ActiveEraInfo>, u32]>([
+    api.queryMulti<[ActiveEraInfo | Option<ActiveEraInfo>, u32]>([
       api.query.staking.activeEra,
       api.query.staking.historyDepth
     ]).pipe(
       map(([activeEraOpt, historyDepth]): EraIndex[] => {
         const result: EraIndex[] = [];
         const max = historyDepth.toNumber();
-        const activeEra: BN = activeEraOpt.unwrapOrDefault().index;
-        let lastEra = activeEra;
+        const activeEra = (
+          isActiveOpt(activeEraOpt)
+            ? activeEraOpt.unwrapOrDefault()
+            : activeEraOpt
+        ).index;
+        let lastEra: BN = activeEra;
 
         while (lastEra.gte(BN_ZERO) && (result.length < max)) {
           if ((lastEra !== activeEra) || (withActive === true)) {

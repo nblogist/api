@@ -10,6 +10,7 @@ import type { DeriveSessionIndexes } from '../types';
 import { map, of } from 'rxjs';
 
 import { memo } from '../util';
+import { isActiveOpt } from './util';
 
 // parse into Indexes
 function parse ([currentIndex, activeEra, activeEraStart, currentEra, validatorCount]: [SessionIndex, EraIndex, Option<Moment>, EraIndex, u32]): DeriveSessionIndexes {
@@ -24,14 +25,16 @@ function parse ([currentIndex, activeEra, activeEraStart, currentEra, validatorC
 
 // query based on latest
 function queryStaking (api: ApiInterfaceRx): Observable<DeriveSessionIndexes> {
-  return api.queryMulti<[SessionIndex, Option<ActiveEraInfo>, Option<EraIndex>, u32]>([
+  return api.queryMulti<[SessionIndex, ActiveEraInfo | Option<ActiveEraInfo>, Option<EraIndex>, u32]>([
     api.query.session.currentIndex,
     api.query.staking.activeEra,
     api.query.staking.currentEra,
     api.query.staking.validatorCount
   ]).pipe(
     map(([currentIndex, activeOpt, currentEra, validatorCount]): DeriveSessionIndexes => {
-      const { index, start } = activeOpt.unwrapOrDefault();
+      const { index, start } = isActiveOpt(activeOpt)
+        ? activeOpt.unwrapOrDefault()
+        : activeOpt;
 
       return parse([
         currentIndex,
